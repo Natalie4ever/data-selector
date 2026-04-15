@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sqlite3 data.db \"SELECT * FROM transaction_detail LIMIT 3;\")",
+      "Bash(sqlite3 data.db \"SELECT * FROM sales_data LIMIT 3;\")",
+      "Bash(npm install:*)",
+      "Bash(./venv/Scripts/pip install:*)",
+      "Bash(./backend/venv/Scripts/python encrypt_tool.py)",
+      "Bash(./venv/Scripts/python -c \"from main import app; print\\('app import OK'\\)\")"
+    ]
+  }
+}
