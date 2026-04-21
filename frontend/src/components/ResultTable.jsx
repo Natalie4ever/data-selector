@@ -22,12 +22,24 @@ export default function ResultTable({ columns, rows, filters }) {
     );
   }
 
+  // 数字比较函数，用于数值列的正确排序
+  const numericCompare = (a, b) => {
+    const numA = parseFloat(a);
+    const numB = parseFloat(b);
+    if (!isNaN(numA) && !isNaN(numB)) {
+      return numA - numB;
+    }
+    return String(a).localeCompare(String(b));
+  };
+
   const tableColumns = columns.map(col => ({
     title: col,
     dataIndex: col,
     key: col,
     width: 150,
     ellipsis: true,
+    sorter: (a, b) => numericCompare(a[col], b[col]),
+    sortDirections: ['ascend', 'descend'],
   }));
 
   return (

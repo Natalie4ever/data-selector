@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { message, Modal, Card, Spin, Button, Space } from 'antd';
+import { message, Modal, Card, Spin, Button, Space, ConfigProvider } from 'antd';
+import zhCN from 'antd/locale/zh_CN';
 import { UserOutlined, LogoutOutlined, HistoryOutlined } from '@ant-design/icons';
 import QueryFormModal from './components/QueryFormModal';
 import ParamsModal from './components/ParamsModal';
@@ -538,7 +539,11 @@ export default function App() {
 
   // 未登录，显示登录页面
   if (!isLoggedIn) {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <ConfigProvider locale={zhCN}>
+        <LoginPage onLoginSuccess={handleLoginSuccess} />
+      </ConfigProvider>
+    );
   }
 
   // 当前菜单下的查询列表
@@ -546,6 +551,7 @@ export default function App() {
 
   // 已登录，显示主应用
   return (
+    <ConfigProvider locale={zhCN}>
     <div style={{
       display: 'flex',
       flexDirection: 'column',
@@ -765,5 +771,6 @@ export default function App() {
         onDeleteItem={handleDeleteItem}
       />
     </div>
+    </ConfigProvider>
   );
 }
