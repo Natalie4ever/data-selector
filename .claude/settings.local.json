@@ -6,7 +6,20 @@
       "Bash(npm install:*)",
       "Bash(./venv/Scripts/pip install:*)",
       "Bash(./backend/venv/Scripts/python encrypt_tool.py)",
-      "Bash(./venv/Scripts/python -c \"from main import app; print\\('app import OK'\\)\")"
+      "Bash(./venv/Scripts/python -c \"from main import app; print\\('app import OK'\\)\")",
+      "Bash(./backend/venv/Scripts/python -c \"from backend.auth import verify_password, get_password_hash, create_access_token, decode_access_token; print\\('auth.py OK'\\)\")",
+      "Bash(./backend/venv/Scripts/python -c ' *)",
+      "Bash(./pip install *)",
+      "Bash(./pip show *)",
+      "Bash(npm run *)",
+      "Bash(./venv/Scripts/python -c ' *)",
+      "Bash(python -c \"import hashlib; print\\(hashlib.sha256\\(b'1234567Password01!'\\).hexdigest\\(\\)\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(python -c \"from backend import crud; print\\('crud OK'\\)\")",
+      "Bash(python -c \"from backend import models; print\\('models OK'\\)\")",
+      "Bash(python -c \"from backend.main import app; print\\('main OK'\\)\")",
+      "Bash(node -e \"require\\('./src/App.jsx'\\)\")",
+      "Bash(node --check src/App.jsx)"
     ]
   }
 }

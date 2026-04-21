@@ -19,7 +19,7 @@ venv/
 ENV/
 
 # Database
-*.db
+
 *.sqlite
 *.sqlite3
 
