@@ -21,6 +21,7 @@ class QueryCreate(BaseModel):
     parameters: List[Parameter] = []
     column_config: List[ColumnConfig] = []
     datasource_id: Optional[str] = None  # 数据源 ID
+    menu_item_id: Optional[int] = None  # 所属二级菜单 ID
 
 
 class QueryUpdate(BaseModel):
@@ -29,6 +30,7 @@ class QueryUpdate(BaseModel):
     parameters: Optional[List[Parameter]] = None
     column_config: Optional[List[ColumnConfig]] = None
     datasource_id: Optional[str] = None  # 数据源 ID
+    menu_item_id: Optional[int] = None  # 所属二级菜单 ID
 
 
 class QueryOut(BaseModel):
@@ -47,13 +49,13 @@ class QueryListItem(BaseModel):
     display_name: str
     parameters: List[Parameter]
     datasource_id: Optional[str] = None  # 数据源 ID
+    menu_item_id: Optional[int] = None  # 所属二级菜单 ID
 
 
 class ExecuteRequest(BaseModel):
     params: Dict[str, Any] = {}
     date_column: Optional[str] = None  # 用于分组的日期字段
     group_by: Optional[str] = None  # day, week, month
-    column_config: List[ColumnConfig] = []  # 列聚合配置
 
 
 class ExecuteResponse(BaseModel):
@@ -82,3 +84,113 @@ class Datasource(BaseModel):
 class TestConnectionResponse(BaseModel):
     success: bool
     message: str
+
+
+# ====================
+# 登录认证相关模型
+# ====================
+
+class LoginRequest(BaseModel):
+    ehr_no: str
+    password: str
+
+
+class User(BaseModel):
+    ehr_no: str
+
+
+class LoginResponse(BaseModel):
+    success: bool
+    message: str
+    token: Optional[str] = None
+    user: Optional[User] = None
+
+
+class LogoutResponse(BaseModel):
+    success: bool
+    message: str
+
+
+class AuthMeResponse(BaseModel):
+    ehr_no: str
+
+
+# ====================
+# 操作日志相关模型
+# ====================
+
+class AuditLogItem(BaseModel):
+    id: int
+    ehr_no: Optional[str]
+    action: str
+    target_type: Optional[str]
+    target_id: Optional[str]
+    detail: Dict[str, Any]
+    before_value: Optional[Dict[str, Any]]
+    ip_address: Optional[str]
+    user_agent: Optional[str]
+    status: str
+    error_message: Optional[str]
+    created_at: datetime
+
+
+class AuditLogListResponse(BaseModel):
+    logs: List[AuditLogItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class AuditLogQueryParams(BaseModel):
+    page: int = 1
+    page_size: int = 20
+    action: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+
+# ====================
+# 菜单管理相关模型
+# ====================
+
+class CategoryCreate(BaseModel):
+    name: str
+    sort_order: int = 0
+    visible_ehrs: Optional[List[str]] = None  # 为 None 表示所有人可见
+
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    sort_order: Optional[int] = None
+    visible_ehrs: Optional[List[str]] = None  # 为 None 表示所有人可见
+
+
+class CategoryOut(BaseModel):
+    id: int
+    name: str
+    sort_order: int
+    visible_ehrs: Optional[List[str]] = None
+    items: List["MenuItemOut"] = []
+    uncategorized: List["QueryListItem"] = []
+
+
+class MenuItemCreate(BaseModel):
+    category_id: int
+    name: str
+    sort_order: int = 0
+
+
+class MenuItemUpdate(BaseModel):
+    name: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
+class MenuItemOut(BaseModel):
+    id: int
+    name: str
+    sort_order: int
+    queries: List[QueryListItem] = []
+
+
+# 更新前向引用
+CategoryOut.model_rebuild()
