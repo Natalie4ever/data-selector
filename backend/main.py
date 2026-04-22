@@ -63,7 +63,9 @@ def _get_request_info(request: Request = None) -> tuple:
 
 @app.get("/api/queries", response_model=List[QueryListItem])
 def list_queries(current_user: dict = Depends(get_current_user)):
-    return crud.get_all_queries()
+    ehr_no = current_user.get("ehr_no")
+    is_admin = audit.can_view_audit_logs(ehr_no)
+    return crud.get_all_queries(ehr_no=ehr_no, is_admin=is_admin)
 
 
 @app.post("/api/queries", response_model=int)

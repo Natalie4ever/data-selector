@@ -166,11 +166,17 @@ def create_query(query: QueryCreate, menu_item_id: int = None) -> int:
     return lastrowid
 
 
-def get_all_queries() -> List[QueryListItem]:
+def get_all_queries(ehr_no: str = None, is_admin: bool = False) -> List[QueryListItem]:
     conn = _get_conn()
-    cursor = conn.execute(
-        "SELECT id, display_name, parameters, datasource_id, menu_item_id FROM saved_queries ORDER BY created_at DESC"
-    )
+    # 只有管理员才能看到未分类的查询（menu_item_id 为 NULL）
+    if is_admin:
+        cursor = conn.execute(
+            "SELECT id, display_name, parameters, datasource_id, menu_item_id FROM saved_queries ORDER BY created_at DESC"
+        )
+    else:
+        cursor = conn.execute(
+            "SELECT id, display_name, parameters, datasource_id, menu_item_id FROM saved_queries WHERE menu_item_id IS NOT NULL ORDER BY created_at DESC"
+        )
     rows = cursor.fetchall()
     result = []
     for row in rows:
@@ -338,18 +344,20 @@ def get_menu_tree(ehr_no: str = None, is_admin: bool = False) -> List[dict]:
             })
 
         # 获取未分类的查询（menu_item_id 为 NULL）
+        # 只有管理员可见
         uncategorized_cursor = conn.execute(
             """SELECT id, display_name, parameters FROM saved_queries
                WHERE menu_item_id IS NULL ORDER BY created_at DESC"""
         )
         uncategorized = []
-        for q_row in uncategorized_cursor:
-            params = json.loads(q_row["parameters"]) if q_row["parameters"] else []
-            uncategorized.append({
-                "id": q_row["id"],
-                "display_name": q_row["display_name"],
-                "parameters": [Parameter(**p) for p in params]
-            })
+        if is_admin:
+            for q_row in uncategorized_cursor:
+                params = json.loads(q_row["parameters"]) if q_row["parameters"] else []
+                uncategorized.append({
+                    "id": q_row["id"],
+                    "display_name": q_row["display_name"],
+                    "parameters": [Parameter(**p) for p in params]
+                })
 
         categories.append({
             "id": cat_row["id"],
