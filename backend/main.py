@@ -160,6 +160,45 @@ def execute_query(query_id: int, req: ExecuteRequest, current_user: dict = Depen
                     f"'{value}'" if isinstance(value, str) else str(value)
                 )
 
+    # 注入时间筛选条件
+    time_filters = req.time_filters
+    if time_filters:
+        time_conditions = []
+        for col, tf in time_filters.items():
+            if not isinstance(tf, dict):
+                continue
+            col_escaped = col.replace("'", "''")
+            start = tf.get("start")
+            end = tf.get("end")
+            if start and end:
+                time_conditions.append(f"{col_escaped} >= '{start}' AND {col_escaped} <= '{end}'")
+            elif start:
+                time_conditions.append(f"{col_escaped} >= '{start}'")
+            elif end:
+                time_conditions.append(f"{col_escaped} <= '{end}'")
+        if time_conditions:
+            where_clause = " AND ".join(time_conditions)
+            sql_upper = sql_text.strip().upper()
+            if " WHERE " in sql_upper:
+                # 已有 WHERE 子句，追加条件
+                # 找到最后一个 WHERE 的位置（大小写不敏感）
+                idx = sql_upper.rfind(" WHERE ")
+                insert_pos = idx + 7  # len(" WHERE ")
+                # 在 WHERE 后插入括号条件
+                before = sql_text[:insert_pos]
+                after = sql_text[insert_pos:]
+                sql_text = f"{before} ({where_clause}) AND {after}"
+            else:
+                # 没有 WHERE 子句，在 ORDER BY/GROUP BY/LIMIT 前或末尾插入
+                # 检查是否有 ORDER BY / GROUP BY / LIMIT
+                for keyword in [" ORDER BY ", " GROUP BY ", " LIMIT "]:
+                    idx_upper = sql_upper.find(keyword)
+                    if idx_upper != -1:
+                        sql_text = f"{sql_text[:idx_upper]} WHERE {where_clause} {sql_text[idx_upper:]}"
+                        break
+                else:
+                    sql_text = f"{sql_text.rstrip(';')} WHERE {where_clause}"
+
     # 根据数据源创建连接
     datasource_id = query_data.get("datasource_id")
     print(f"[DEBUG] execute_query: query_id={query_id}, datasource_id={datasource_id!r}")
@@ -239,13 +278,6 @@ def execute_query(query_id: int, req: ExecuteRequest, current_user: dict = Depen
         raise HTTPException(status_code=400, detail=f"查询执行失败: {str(e)}")
 
     conn.close()
-
-    # 如果有日期分组需求，在后端处理
-    if req.date_column and req.group_by and req.date_column in columns:
-        data_rows = _group_by_date(
-            data_rows, req.date_column, req.group_by,
-            columns, types
-        )
 
     ip, ua = _get_request_info(request)
     audit.log_operation(
@@ -584,88 +616,6 @@ async def delete_menu_item(
         user_agent=ua,
     )
     return {"status": "ok"}
-
-
-# ====================
-# 日期分组逻辑
-# ====================
-
-def _group_by_date(
-    rows: List[Dict[str, Any]],
-    date_column: str,
-    group_by: str,
-    columns: List[str],
-    types: Dict[str, Optional[int]],
-) -> List[Dict[str, Any]]:
-    """后端按照日/周/月分组汇总数据"""
-    from collections import defaultdict
-
-    # 用于记录每个聚合组中，每个列的原始值列表
-    agg_values = defaultdict(lambda: defaultdict(list))
-
-    date_keys = {}
-
-    for row in rows:
-        date_str = row.get(date_column)
-        if not date_str:
-            continue
-
-        # 解析日期
-        try:
-            if isinstance(date_str, str):
-                for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d", "%Y/%m/%d %H:%M:%S", "%Y/%m/%d", "%Y%m%d"]:
-                    try:
-                        dt = datetime.strptime(date_str.strip(), fmt)
-                        break
-                    except ValueError:
-                        dt = None
-                if dt is None:
-                    continue
-            elif hasattr(date_str, "year") and hasattr(date_str, "month") and hasattr(date_str, "day"):
-                dt = date_str
-            else:
-                dt = datetime.strptime(str(date_str).strip(), "%Y-%m-%d")
-
-            if group_by == "day":
-                key = dt.strftime("%Y-%m-%d")
-            elif group_by == "week":
-                key = f"{dt.year}-W{dt.isocalendar()[1]:02d}"
-            elif group_by == "month":
-                key = dt.strftime("%Y-%m")
-            else:
-                key = dt.strftime("%Y-%m-%d")
-
-            date_keys[key] = key
-
-            # 收集每个列的值
-            for col, val in row.items():
-                if col == date_column:
-                    continue
-                agg_values[key][col].append(val)
-        except Exception:
-            continue
-
-    # 执行聚合
-    result = []
-    for key in sorted(date_keys.keys()):
-        row_dict = {"_date_key": key}
-        for col in columns:
-            if col == date_column:
-                row_dict[col] = key
-                continue
-            vals = agg_values[key].get(col, [])
-
-            if not vals:
-                row_dict[col] = None
-                continue
-
-            # 默认取第一个值（不聚合）
-            row_dict[col] = vals[0]
-
-        del row_dict["_date_key"]
-        result.append(row_dict)
-
-    return result
 
 
 if __name__ == "__main__":

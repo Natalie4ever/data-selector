@@ -127,13 +127,12 @@ export async function deleteQuery(queryId) {
   return res.json();
 }
 
-export async function executeQuery(queryId, params, groupOptions = {}) {
+export async function executeQuery(queryId, params, timeFilters = {}) {
   const res = await fetchWithAuth(`${API_BASE}/queries/${queryId}/execute`, {
     method: 'POST',
     body: JSON.stringify({
       params,
-      date_column: groupOptions.dateColumn || null,
-      group_by: groupOptions.groupBy || null,
+      time_filters: timeFilters,
     }),
   });
   if (!res.ok) throw new Error('执行查询失败');

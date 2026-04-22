@@ -54,8 +54,7 @@ class QueryListItem(BaseModel):
 
 class ExecuteRequest(BaseModel):
     params: Dict[str, Any] = {}
-    date_column: Optional[str] = None  # 用于分组的日期字段
-    group_by: Optional[str] = None  # day, week, month
+    time_filters: Dict[str, Any] = {}  # 时间筛选 { col: { start, end } }
 
 
 class ExecuteResponse(BaseModel):

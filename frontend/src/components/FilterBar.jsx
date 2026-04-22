@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Space, Select, Typography, Button, DatePicker, Collapse } from 'antd';
 import dayjs from 'dayjs';
 import {
@@ -12,12 +12,6 @@ import {
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
-
-const GROUP_OPTIONS = [
-  { label: '日', value: 'day' },
-  { label: '周', value: 'week' },
-  { label: '月', value: 'month' },
-];
 
 // 检测字段是否为时间类型
 function detectTimeFieldType(col, rows) {
@@ -67,10 +61,8 @@ function getDistinctValues(rows, col) {
   return values.filter(v => v != null && v !== '').sort();
 }
 
-export default function FilterBar({ columns, rows, onChange, dateColumnChanged, onExecute, onExport, loading }) {
+export default function FilterBar({ columns, rows, onChange, onTimeFiltersChange, onExecute, onExport, loading }) {
   const [filters, setFilters] = useState({});
-  const [dateColumn, setDateColumn] = useState(null);
-  const [groupBy, setGroupBy] = useState('day');
   const [timeFilters, setTimeFilters] = useState({}); // { col: { start, end } }
   const [timeSectionOpen, setTimeSectionOpen] = useState(false);
 
@@ -82,27 +74,11 @@ export default function FilterBar({ columns, rows, onChange, dateColumnChanged, 
       .filter(item => item.type !== null);
   }, [columns, rows]);
 
-  // 检测用于分组的日期字段（兼容原有功能）
-  const possibleDateColumns = useMemo(() => {
-    if (!columns || !rows[0]) return [];
-    return columns.filter(col => {
-      const type = detectTimeFieldType(col, rows);
-      return type === 'date' || type === 'month';
-    });
-  }, [columns, rows]);
-
-  useEffect(() => {
-    if (possibleDateColumns.length > 0 && !dateColumn) {
-      setDateColumn(possibleDateColumns[0]);
-      dateColumnChanged(possibleDateColumns[0], groupBy);
-    }
-  }, [possibleDateColumns, dateColumn, groupBy, dateColumnChanged]);
-
   // 普通筛选变化
   const handleFilterChange = (col, value) => {
     const newFilters = { ...filters, [col]: value };
     setFilters(newFilters);
-    onChange(newFilters, { dateColumn, groupBy });
+    onChange(newFilters);
   };
 
   // 时间筛选变化
@@ -117,37 +93,24 @@ export default function FilterBar({ columns, rows, onChange, dateColumnChanged, 
       };
     }
     setTimeFilters(newTimeFilters);
-    // 将时间筛选合并到 filters 中传递
-    const mergedFilters = { ...filters };
-    Object.entries(newTimeFilters).forEach(([c, v]) => {
-      mergedFilters[`__time_${c}`] = v;
-    });
-    onChange(mergedFilters, { dateColumn, groupBy });
-  };
-
-  const handleDateColumnChange = (value) => {
-    setDateColumn(value);
-    dateColumnChanged(value, groupBy);
-  };
-
-  const handleGroupByChange = (value) => {
-    setGroupBy(value);
-    dateColumnChanged(dateColumn, value);
+    // 触发时间筛选回调，由父组件发往后端
+    if (onTimeFiltersChange) {
+      onTimeFiltersChange(newTimeFilters);
+    }
   };
 
   const handleReset = () => {
     setFilters({});
     setTimeFilters({});
-    onChange({}, { dateColumn, groupBy });
+    onChange({});
   };
 
   const handleTimeReset = () => {
-    setTimeFilters({});
-    const mergedFilters = { ...filters };
-    Object.keys(timeFilters).forEach(c => {
-      delete mergedFilters[`__time_${c}`];
-    });
-    onChange(mergedFilters, { dateColumn, groupBy });
+    const emptyTimeFilters = {};
+    setTimeFilters(emptyTimeFilters);
+    if (onTimeFiltersChange) {
+      onTimeFiltersChange(emptyTimeFilters);
+    }
   };
 
   const hasActiveFilters = Object.keys(filters).length > 0 || Object.keys(timeFilters).length > 0;
@@ -192,30 +155,6 @@ export default function FilterBar({ columns, rows, onChange, dateColumnChanged, 
               </div>
             );
           })}
-
-          {/* 日期字段选择（用于分组聚合） */}
-          {possibleDateColumns.length > 0 && (
-            <>
-              <div>
-                <Text>日期字段：</Text>
-                <Select
-                  value={dateColumn}
-                  onChange={handleDateColumnChange}
-                  style={{ width: 120, marginLeft: 4 }}
-                  options={possibleDateColumns.map(col => ({ label: col, value: col }))}
-                />
-              </div>
-              <div>
-                <Text>统计维度：</Text>
-                <Select
-                  value={groupBy}
-                  onChange={handleGroupByChange}
-                  style={{ width: 80, marginLeft: 4 }}
-                  options={GROUP_OPTIONS}
-                />
-              </div>
-            </>
-          )}
 
           {/* 重置按钮 */}
           <Button icon={<ReloadOutlined />} onClick={handleReset} disabled={!hasActiveFilters}>

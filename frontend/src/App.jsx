@@ -31,7 +31,7 @@ export default function App() {
   const [editingQuery, setEditingQuery] = useState(null);
   const [result, setResult] = useState({ columns: [], rows: [] });
   const [filters, setFilters] = useState({});
-  const [groupOptions, setGroupOptions] = useState({ dateColumn: null, groupBy: 'day' });
+  const [timeFilters, setTimeFilters] = useState({});
   const [loading, setLoading] = useState(false);
   const [appLoading, setAppLoading] = useState(true);
   const [canViewAudit, setCanViewAudit] = useState(false);
@@ -247,7 +247,7 @@ export default function App() {
     doQuery();
   }, [activeQueryId]);
 
-  const executeQuery = async (params = {}, activeDetail, overrideGroupOptions = null) => {
+  const executeQuery = async (params = {}, activeDetail) => {
     const detail = activeDetail || activeQueryDetail;
     const queryId = activeQueryId;
     if (!queryId || !detail) {
@@ -255,8 +255,7 @@ export default function App() {
     }
     setLoading(true);
     try {
-      const opts = overrideGroupOptions !== null ? overrideGroupOptions : groupOptions;
-      const data = await api.executeQuery(queryId, params, opts);
+      const data = await api.executeQuery(queryId, params, timeFilters);
       setResult(data);
       setFilters({});
     } catch (error) {
@@ -284,24 +283,21 @@ export default function App() {
     currentQueryMarker.current = marker;
 
     const isSameQuery = queryId === activeQueryId;
-    const resetGroupOptions = { dateColumn: null, groupBy: 'day' };
 
     if (!isSameQuery) {
-      // 切换到不同查询：清空旧结果和详情，重置分组选项
+      // 切换到不同查询：清空旧结果和详情
       setResult({ columns: [], rows: [] });
       setActiveQueryDetail(null);
-      setGroupOptions(resetGroupOptions);
     }
 
     setActiveQueryId(queryId);
 
     if (isSameQuery && activeQueryDetail) {
-      // 重复点击当前查询：直接重新执行，并重置分组选项避免 FilterBar 自动设置的分组污染结果
-      setGroupOptions(resetGroupOptions);
+      // 重复点击当前查询：直接重新执行
       if (activeQueryDetail.parameters && activeQueryDetail.parameters.length > 0) {
         setParamsModalOpen(true);
       } else {
-        executeQuery({}, activeQueryDetail, resetGroupOptions);
+        executeQuery({}, activeQueryDetail);
       }
     }
     // 如果是首次点击（isSameQuery 为 false），useEffect 会自动加载并执行
@@ -440,15 +436,16 @@ export default function App() {
     }
   };
 
-  const handleFilterChange = (newFilters, newGroupOptions) => {
+  const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
-    if (newGroupOptions) {
-      setGroupOptions(newGroupOptions);
-    }
   };
 
-  const handleDateColumnChange = (dateColumn, groupBy) => {
-    setGroupOptions({ dateColumn, groupBy });
+  const handleTimeFiltersChange = (newTimeFilters) => {
+    setTimeFilters(newTimeFilters);
+    // 自动触发一次查询，将时间筛选发给后端
+    if (activeQueryId && activeQueryDetail) {
+      executeQuery({}, activeQueryDetail);
+    }
   };
 
   const filteredRows = useMemo(() => {
@@ -562,15 +559,16 @@ export default function App() {
       <div style={{
         height: 64,
         padding: '0 24px',
-        borderBottom: '1px solid #f0f0f0',
+        borderBottom: '1px solid rgba(255,255,255,0.1)',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        background: '#fff',
+        background: 'linear-gradient(135deg, #0d47a1, #1976d2)',
+
         flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
+          {/* <div style={{
             width: 32,
             height: 32,
             borderRadius: 8,
@@ -584,15 +582,12 @@ export default function App() {
             flexShrink: 0,
           }}>
             D
-          </div>
+          </div> */}
           <h1 style={{
             margin: 0,
             fontSize: 20,
             fontWeight: 700,
-            background: 'linear-gradient(135deg, #667eea, #764ba2)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
+            color: '#fff',
           }}>
             数据加工助手
           </h1>
@@ -600,17 +595,19 @@ export default function App() {
         <Space>
           {canViewAudit && (
             <Button
+              // type="primary"
               icon={<HistoryOutlined />}
               onClick={() => setAuditLogOpen(true)}
             >
               操作日志
             </Button>
           )}
-          <span style={{ color: '#666' }}>
+          <span style={{ color: 'rgba(255,255,255,0.85)' }}>
             <UserOutlined style={{ marginRight: 4 }} />
             EHR: {currentUser?.ehr_no}
           </span>
           <Button
+            // type="primary"
             icon={<LogoutOutlined />}
             onClick={handleLogout}
           >
@@ -697,7 +694,7 @@ export default function App() {
                     columns={result.columns}
                     rows={result.rows}
                     onChange={handleFilterChange}
-                    dateColumnChanged={handleDateColumnChange}
+                    onTimeFiltersChange={handleTimeFiltersChange}
                     onExecute={() => executeQuery({})}
                     onExport={handleExport}
                     loading={loading}
