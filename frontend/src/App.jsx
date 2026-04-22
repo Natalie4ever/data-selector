@@ -442,10 +442,6 @@ export default function App() {
 
   const handleTimeFiltersChange = (newTimeFilters) => {
     setTimeFilters(newTimeFilters);
-    // 自动触发一次查询，将时间筛选发给后端
-    if (activeQueryId && activeQueryDetail) {
-      executeQuery({}, activeQueryDetail);
-    }
   };
 
   const filteredRows = useMemo(() => {

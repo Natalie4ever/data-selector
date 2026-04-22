@@ -29,14 +29,7 @@ function detectTimeFieldType(col, rows) {
     return 'week';
   }
 
-  // 通过字段名判断是否为日期时间
-  if (nameLower.includes('date') || nameLower.includes('time') ||
-      nameLower.includes('日') || nameLower.includes('时间') ||
-      nameLower.includes('期')) {
-    return 'date';
-  }
-
-  // 通过数据值判断
+  // 通过数据值判断（优先于字段名）
   const sample = rows[0]?.[col];
   if (typeof sample === 'string') {
     // 年：4位数字
@@ -45,10 +38,23 @@ function detectTimeFieldType(col, rows) {
     if (/^\d{4}-\d{2}$/.test(sample.trim())) return 'month';
     // 周：YYYY-Www
     if (/^\d{4}-W\d{2}/.test(sample.trim())) return 'week';
-    // 日期：YYYY-MM-DD
-    if (/^\d{4}-\d{2}-\d{2}/.test(sample.trim()) || /^\d{4}\/\d{2}\/\d{2}/.test(sample.trim())) {
+    // 日期时间：YYYY-MM-DD HH:mm（有空格和时间部分）
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(sample.trim()) || /^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}/.test(sample.trim())) {
+      return 'datetime';
+    }
+    // 日期：YYYY-MM-DD（无时间部分）
+    if (/^\d{4}-\d{2}-\d{2}$/.test(sample.trim()) || /^\d{4}\/\d{2}\/\d{2}$/.test(sample.trim())) {
       return 'date';
     }
+  }
+
+  // 通过字段名判断是否为日期时间（兜底逻辑）
+  if (nameLower.includes('time') && !nameLower.includes('datetime')) {
+    return 'datetime';
+  }
+  if (nameLower.includes('date') || nameLower.includes('日') ||
+      nameLower.includes('时间') || nameLower.includes('期')) {
+    return 'date';
   }
 
   return null;
@@ -82,18 +88,33 @@ export default function FilterBar({ columns, rows, onChange, onTimeFiltersChange
   };
 
   // 时间筛选变化
-  const handleTimeFilterChange = (col, range) => {
+  const handleTimeFilterChange = (col, type, range) => {
     const newTimeFilters = { ...timeFilters };
     if (!range || range.length === 0) {
       delete newTimeFilters[col];
     } else {
-      newTimeFilters[col] = {
-        start: range[0]?.format('YYYY-MM-DD HH:mm:ss') || null,
-        end: range[1]?.format('YYYY-MM-DD HH:mm:ss') || null,
-      };
+      if (type === 'date') {
+        // date 类型：只比较日期部分，不加时间
+        newTimeFilters[col] = {
+          start: range[0]?.format('YYYY-MM-DD') || null,
+          end: range[1]?.format('YYYY-MM-DD') || null,
+        };
+      } else if (type === 'datetime') {
+        // datetime 类型：使用精确时间
+        newTimeFilters[col] = {
+          start: range[0]?.format('YYYY-MM-DD HH:mm:ss') || null,
+          end: range[1]?.format('YYYY-MM-DD HH:mm:ss') || null,
+        };
+      } else {
+        // 其他类型（year/month/week）使用月或年的第一天/最后一天
+        newTimeFilters[col] = {
+          start: range[0]?.format('YYYY-MM-DD 00:00:00') || null,
+          end: range[1]?.endOf('day').format('YYYY-MM-DD HH:mm:ss') || null,
+        };
+      }
     }
     setTimeFilters(newTimeFilters);
-    // 触发时间筛选回调，由父组件发往后端
+    // 通知父组件更新状态（用户点击"查询"按钮时会使用最新的 timeFilters）
     if (onTimeFiltersChange) {
       onTimeFiltersChange(newTimeFilters);
     }
@@ -103,6 +124,9 @@ export default function FilterBar({ columns, rows, onChange, onTimeFiltersChange
     setFilters({});
     setTimeFilters({});
     onChange({});
+    if (onTimeFiltersChange) {
+      onTimeFiltersChange({});
+    }
   };
 
   const handleTimeReset = () => {
@@ -224,7 +248,7 @@ export default function FilterBar({ columns, rows, onChange, onTimeFiltersChange
                             timeFilter.start ? dayjs(timeFilter.start) : null,
                             timeFilter.end ? dayjs(timeFilter.end) : null,
                           ] : null}
-                          onChange={(dates) => handleTimeFilterChange(col, dates)}
+                          onChange={(dates) => handleTimeFilterChange(col, type, dates)}
                           allowClear
                         />
                       </div>
@@ -243,7 +267,7 @@ export default function FilterBar({ columns, rows, onChange, onTimeFiltersChange
                             timeFilter.start ? dayjs(timeFilter.start) : null,
                             timeFilter.end ? dayjs(timeFilter.end) : null,
                           ] : null}
-                          onChange={(dates) => handleTimeFilterChange(col, dates)}
+                          onChange={(dates) => handleTimeFilterChange(col, type, dates)}
                           allowClear
                         />
                       </div>
@@ -262,26 +286,46 @@ export default function FilterBar({ columns, rows, onChange, onTimeFiltersChange
                             timeFilter.start ? dayjs(timeFilter.start) : null,
                             timeFilter.end ? dayjs(timeFilter.end) : null,
                           ] : null}
-                          onChange={(dates) => handleTimeFilterChange(col, dates)}
+                          onChange={(dates) => handleTimeFilterChange(col, type, dates)}
                           allowClear
                         />
                       </div>
                     );
                   }
 
-                  // date 类型
+                  if (type === 'datetime') {
+                    // datetime 类型：显示时间选择
+                    return (
+                      <div key={col} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Text>{col}：</Text>
+                        <RangePicker
+                          showTime
+                          placeholder={['开始时间', '结束时间']}
+                          style={{ width: 320 }}
+                          value={timeFilter ? [
+                            timeFilter.start ? dayjs(timeFilter.start) : null,
+                            timeFilter.end ? dayjs(timeFilter.end) : null,
+                          ] : null}
+                          onChange={(dates) => handleTimeFilterChange(col, type, dates)}
+                          allowClear
+                        />
+                      </div>
+                    );
+                  }
+
+                  // date 类型：纯日期，不显示时间选择
                   return (
                     <div key={col} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <Text>{col}：</Text>
                       <RangePicker
-                        showTime
-                        placeholder={['开始时间', '结束时间']}
-                        style={{ width: 320 }}
+                        picker="date"
+                        placeholder={['开始日期', '结束日期']}
+                        style={{ width: 220 }}
                         value={timeFilter ? [
                           timeFilter.start ? dayjs(timeFilter.start) : null,
                           timeFilter.end ? dayjs(timeFilter.end) : null,
                         ] : null}
-                        onChange={(dates) => handleTimeFilterChange(col, dates)}
+                        onChange={(dates) => handleTimeFilterChange(col, type, dates)}
                         allowClear
                       />
                     </div>
@@ -290,7 +334,7 @@ export default function FilterBar({ columns, rows, onChange, onTimeFiltersChange
 
                 {/* 时间筛选重置 */}
                 <Button
-                  size="small"
+                  size="middle"
                   onClick={handleTimeReset}
                   disabled={Object.keys(timeFilters).length === 0}
                 >

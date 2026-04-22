@@ -19,7 +19,12 @@
       "Bash(python -c \"from backend import models; print\\('models OK'\\)\")",
       "Bash(python -c \"from backend.main import app; print\\('main OK'\\)\")",
       "Bash(node -e \"require\\('./src/App.jsx'\\)\")",
-      "Bash(node --check src/App.jsx)"
+      "Bash(node --check src/App.jsx)",
+      "Bash(node -e \"require\\('fs'\\).readFileSync\\('frontend/src/components/FilterBar.jsx','utf8'\\)\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(python backend/generate_test_data.py)",
+      "Bash(python -c ' *)"
     ]
   }
 }
